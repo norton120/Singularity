@@ -133,20 +133,37 @@ class Builder:
             task[n*10:][:10] for n in
                 range((len(tasks)//10) + 1)
         ]
-        highest_priority = task_groups.pop(0)
+        for group in task_groups:
+            partial_ids = set([t.partial_group for t in group])
+            for partial_id in partial_ids:
+                partials = [t for t in group if t.partial_group == partial_id]
+                cls._assign_partials(partials, day)
+                group -= partials
+            group = sorted(group, key=lambda x: x.points, reverse=True)
+            for task in group:
+                block = day.most_space_available_block()
+                if block.can_fit(task):
+                    block.add_task(task)
+                    logger.info(f"added {task.description} to block {block.index}")
+                else:
+                    logger.error(f"Could not fit {task.description} into any block")
 
-        for partial in highest_priority.sort(key=lambda x: x.partial_group):
-
-
-                day.most_space_available_block()
-                # deal with oversized tasks
-
-                for block in sorted_blocks:
-                    if block.can_fit(task):
-                        block.add_task(task)
-                        tasks.remove(task)
-            for ock in sorted_blocks:
-                for task in tasks:
-                    if block.can_fit(task):
-                        block.add_task(task)
-                        tasks.remove(task)
+    def _assign_partials(cls,
+                         partials:list[Task],
+                         day:Day) -> None:
+        """assign partials to blocks or fail to do so if there's no room"""
+        contiguous_blocks = len(partials)
+        first_block = day.most_space_available_block()
+        block = first_block
+        # check there's enough room for all the partials
+        for i in range(contiguous_blocks):
+            if not block or not block.can_fit(partials[i]):
+                logger.error(f"Not enough room for partials tasks {partials[i].description}")
+                return
+            block = day.next_block(block)
+        # there's enough room, so assign them
+        block = first_block
+        for i in range(contiguous_blocks):
+            block.add_task(partials[i])
+            block = day.next_block(block)
+        logger.info(f"added complete partials to blocks for {partials[-1].description}")
