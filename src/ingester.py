@@ -3,9 +3,8 @@ import os
 from datetime import date, datetime, timedelta
 from abc import ABC
 from typing import Optional, TYPE_CHECKING
-from imaplib import IMAP4_SSL
-from email import message_from_bytes
-from email.header import decode_header
+from imap_tools import MailBox, A
+from imaplib import IMAP4
 
 from gcsa.google_calendar import GoogleCalendar
 from gcsa.event import Event
@@ -30,27 +29,49 @@ class Credentials:
 
 class EmailIngester(ABC):
 
+    ALL_MAILBOX = "All Mail"
+
     def __init__(self):
-        credentials = Credentials()
-        self.imap = IMAP4_SSL(credentials.host, credentials.port)
-        self.imap.login(credentials.username, credentials.password)
+        self.conn = self.Conn()
 
-    def get_folders(self) -> list[str]:
-        """get all available folders"""
-        _, folders = self.imap.list()
-        return [self.parse_folder_name(f) for f in folders]
+    class Conn:
+        def __init__(self):
+            self.credentials = Credentials()
+            self._refresh_mailbox()
 
-    def get_emails_for_folder(self, folder:str) -> list:
-        """get all emails for a given folder"""
-        self.imap.select(folder)
-        _, data = self.imap.search(None, "ALL")
-        for uid in data[0].split():
-            _, data = self.imap.fetch(uid, "(RFC822)")
-            yield data
+        def _refresh_mailbox(self):
+            self.mailbox = MailBox(self.credentials.host)
 
-    @classmethod
-    def parse_folder_name(self, list_string:str) -> str:
-        raise NotImplementedError
+        def _login(self):
+            self.mailbox.login(self.credentials.username, self.credentials.password)
+            return self.mailbox
+
+        def __enter__(self):
+            try:
+                return self._login()
+            except IMAP4.error:
+                self._refresh_mailbox()
+                return self._login()
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            self.mailbox.logout()
+
+
+    def get_mailboxes(self) -> list:
+        """get all mailboxes"""
+        with self.conn as mailbox:
+            box_list = mailbox.folder.list()
+            return [f.name for f in list(filter(lambda x: "\\Noselect" not in x.flags, box_list))]
+
+    def get_emails_headers_since(self, since: int|None = 1) -> list:
+        """get all emails since n days, do not mark them read (yet)"""
+        with self.conn as mailbox:
+            mailbox.folder.set(self.ALL_MAILBOX)
+            return [m for m in mailbox.fetch(A(date_gte=date.today() - timedelta(days=since)),
+                                             headers_only=True,
+                                             bulk=True,
+                                             mark_seen=False)]
+
 
 class CalendarIngester(ABC):
     """get and set calendar events from a calendar service"""
@@ -74,24 +95,8 @@ class CalendarIngester(ABC):
 
 
 class GmailIngester(EmailIngester):
+    ALL_MAILBOX = "[Gmail]/All Mail"
 
-    @classmethod
-    def parse_folder_name(cls, list_string:str) -> str:
-        """gmail uses a special string pattern for folder names.
-        We decode it to the exposed folder here.
-
-        Args:
-            list_string (str): the binary string returned by the IMAP LIST command
-        """
-        pattern = r'\(.+\)\s"/"\s"(.+)"'
-        try:
-            list_string = list_string.decode('utf-8')
-        except AttributeError:
-            pass
-        try:
-            return re.search(pattern, list_string).group(1)
-        except IndexError:
-            raise ValueError(f"Folder string from Gmail does not follow normal pattern: {list_string}")
 
 class GoogleCalendarIngester(CalendarIngester):
     """get and set calendar events from Google Calendar"""
@@ -118,7 +123,7 @@ class GoogleCalendarIngester(CalendarIngester):
 
         client = GoogleCalendar()
         event = Event(
-            title=title,
+            title,
             start=start,
             end=end,
             description=body,

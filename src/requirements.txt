@@ -4,3 +4,4 @@ slack_sdk~=3.23.0
 taskw~=2.0.0
 gcsa~=2.1.0
 click~=8.1.7
+imap-tools~=1.4.0
