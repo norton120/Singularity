@@ -1,32 +1,60 @@
 from datetime import datetime, date
-from pydantic import BaseModel
+from typing import Optional
+from pydantic import BaseModel, Field
 from enum import Enum
 import uuid
 from taskw import TaskWarrior
 
-from docker_names import get_random_name
+from .docker_names import get_random_name
 from .settings import Settings
 settings = Settings()
+
+class BlockSize(str, Enum):
+    """The size of a block"""
+    big = "big"
+    medium = "medium"
+    small = "small"
+
+class Status(str, Enum):
+    """The status of a task"""
+    pending = "pending"
+    completed = "completed"
+    deleted = "deleted"
+    waiting = "waiting"
+    recurring = "recurring"
 
 class Task(BaseModel):
     """a typed taskwarrior object"""
     description: str
     entry: datetime
     modified: datetime | None = None
-    status: Enum('pending', 'completed', 'deleted', 'waiting', 'recurring', 'recurring-paused', 'deferred',)
+    status: Status
     tags: list[str] = []
     uuid: str
     points: int
-    partial_group: uuid.UUID | None = None
-    block_id: "uuid.UUID" | None = None
+    partial_group: Optional["uuid.UUID"] = None
+    public_status: Optional[str] = Field(None, alias="publictext")
+    block_id: Optional["uuid.UUID"] = None
     block: str | None = None
 
+    class OversizeStrategy(str,Enum):
+        """How to handle tasks that are too big"""
+        break_up = "break_up"
+        ignore = "ignore"
+
     @classmethod
-    def get_tasks(cls, oversize_strategy:Enum("break_up","ignore",)="break_up") -> list["Task"]:
+    def get_active_tasks(cls) -> list["Task"]:
+        """find the task(s) that are currently being worked on"""
+        tw = TaskWarrior()
+        tasks = list(filter(lambda x: x.get('start'),tw.load_tasks(command="pending")['pending']))
+        return [cls(**t) for t in tasks]
+
+    @classmethod
+    def get_tasks(cls, oversize_strategy:OversizeStrategy=OversizeStrategy.break_up) -> list["Task"]:
         """get all the tasks from taskwarrior"""
         tw = TaskWarrior()
         tasks = tw.load_tasks(command="pending")
-        if oversize_strategy == "break_up":
+        if oversize_strategy == cls.OversizeStrategy.break_up:
             cls.break_up_oversized_tasks()
         ordered = sorted(tasks, key=lambda x: (x["partial_group"], x["urgency"], x["points"],), reverse=True)
         return [cls(**t) for t in ordered if t["points"] <= settings.big_max_points]
@@ -59,7 +87,7 @@ class Block(BaseModel):
     start: datetime
     end: datetime
     duration: int
-    size: Enum('big', 'medium','small',)
+    size: BlockSize
     max_points: int
     break_size: int
     tasks: list[Task]
@@ -81,24 +109,24 @@ class Block(BaseModel):
 
 class BigBlock(Block):
     """A Big Block is a Work Block that is 80 minutes long with a 17 minute break"""
-    size = 'big'
-    duration = settings.big_block_size
-    max_points = settings.big_max_points
-    break_size = settings.big_break_size
+    size: BlockSize = 'big'
+    duration: int = settings.big_block_size
+    max_points: int = settings.big_max_points
+    break_size: int = settings.big_break_size
 
 class MediumBlock(Block):
     """A Medium Block is a Work Block that is 50 minutes long with a 17 minute break"""
-    size = 'medium'
-    duration = settings.medium_block_size
-    max_points = settings.medium_max_points
-    break_size = settings.medium_break_size
+    size: BlockSize = 'medium'
+    duration: int = settings.medium_block_size
+    max_points: int = settings.medium_max_points
+    break_size: int = settings.medium_break_size
 
 class SmallBlock(Block):
     """A Small Block is a Work Block that is 25 minutes long with a 10 minute break"""
-    size = 'small'
-    duration = settings.small_block_size
-    max_points = settings.small_max_points
-    break_size = settings.small_break_size
+    size: BlockSize = 'small'
+    duration: int = settings.small_block_size
+    max_points: int = settings.small_max_points
+    break_size: int = settings.small_break_size
 
 class Day(BaseModel):
     """A Day is a collection of Work Blocks"""

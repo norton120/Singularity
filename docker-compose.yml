@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./src:/app
+      - ./src:/app/src
       - ~/.task:/root/.task
       - ./dummy_taskrc:/root/.taskrc
       - ./.google_credentials:/root/.credentials

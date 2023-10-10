@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+from datetime import datetime as time
+from subprocess import Popen, DEVNULL, STDOUT
+from pathlib import Path
+import json
+import sys
+
+try:
+    input_stream = sys.stdin.buffer
+except AttributeError:
+    input_stream = sys.stdin
+
+class States:
+    old: dict = {}
+    new: dict = {}
+
+    @property
+    def state_changed(self) -> bool:
+        return self.old.get("start") != self.new.get("start")
+
+states = States()
+for state in ("old","new",):
+    setattr(states, state, json.loads(input_stream.readline().decode("utf-8", errors="replace")))
+
+def output(states:States, msg:str, exit_code=0):
+    print(json.dumps(states.new))
+    print(msg.replace("\n", " "))
+    sys.exit(exit_code)
+
+try:
+    if states.state_changed:
+        repo_path = Path("~/Repos/Singularity").expanduser()
+        # will need a second for the state to update or we get the old state
+        _ = Popen(cwd=repo_path,
+                  start_new_session=True,
+                  stdout=DEVNULL,
+                  stderr=STDOUT,
+                  args=["docker","compose", "run", "--rm", "singularity", "--wait","5"])
+        output(states, "Updated Slack with new task status", 0)
+    output(states, "No change needed in Slack status",0)
+except Exception as e:
+    output(states, f"Error updating Slack status: {e}", 1)

@@ -1,6 +1,11 @@
 from pydantic_settings import BaseSettings
 from enum import Enum
 
+class BlockSize(str, Enum):
+    small = "small"
+    medium = "medium"
+    big = "big"
+
 
 class Settings(BaseSettings):
     """Settings for the application"""
@@ -17,7 +22,7 @@ class Settings(BaseSettings):
     big_break_size: int = 17
     task_overlap: bool = True
     lunch: bool = True
-    lunch_size: Enum('big', 'medium','small',) = 'medium'
+    lunch_size: BlockSize = BlockSize.medium
     lunch_aprox_start: str = "12:00"
     imap_host: str
     imap_port: int
