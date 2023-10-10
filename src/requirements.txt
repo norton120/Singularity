@@ -1,0 +1,5 @@
+pydantic~=2.4.2
+pydantic-settings~=2.0.3
+slack_sdk~=3.23.0
+taskw~=2.0.0
+gcsa~=2.1.0

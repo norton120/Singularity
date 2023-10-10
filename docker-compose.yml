@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  singularity:
+    image: singularity
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/app
+      - ~/.task:/root/.task
+      - ./dummy_taskrc:/root/.taskrc
+      - ./.google_credentials:/root/.credentials
+    env_file:
+      - .env
+    working_dir: /app
