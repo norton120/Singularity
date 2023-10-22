@@ -10,6 +10,8 @@ services:
       - ~/.task:/root/.task
       - ./dummy_taskrc:/root/.taskrc
       - ./.google_credentials:/root/.credentials
+      # tmp to make this work locally
+      - ~/knox-dev-backend/logseq:/logseq
     env_file:
       - .env
     working_dir: /app

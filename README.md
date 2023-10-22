@@ -1,6 +1,18 @@
 # Singularity
 A vortex that compresses infinite sources of information into two touch points
 
+
+## Confluencer - ripping Confluence to LogSeq
+```
+docker-compose run --rm --entrypoint "" singularity /bin/bash
+> python3
+>>> from src.confluencer import Confluencer
+>>> c = Confluencer()
+>>> c.capture_the_days_confluence_pages_in_logseq()
+```
+This rips updated confluence pages and loads them into local logseq.
+
+
 test tarball!
 ### stuff to respond to (tasks)
 - jira tickets to work
