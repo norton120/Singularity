@@ -12,6 +12,7 @@ services:
       - ./.google_credentials:/root/.credentials
       # tmp to make this work locally
       - ~/knox-dev-backend/logseq:/logseq
+      - ~/Downloads/kindle:/kindle
     env_file:
       - .env
     working_dir: /app

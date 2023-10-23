@@ -12,8 +12,20 @@ docker-compose run --rm --entrypoint "" singularity /bin/bash
 ```
 This rips updated confluence pages and loads them into local logseq.
 
+## Kindler - ripping Kindle scribe pages to LogSeq
+1. email page to self (convert to text)
+2. download into ~Downloads/kindle folder
+3. code:
+```
+docker-compose run --rm --entrypoint "" singularity /bin/bash
+> python3
+>>> from src.kindler import Kindler
+>>> k = Kindler()
+>>> k.write_all_notebooks_to_logseq()
+```
+This will clean, format and inject every one of the txt files in the kindle folder into logseq without the timestamps. if it is newer than an existing file it will overwrite it.
 
-test tarball!
+
 ### stuff to respond to (tasks)
 - jira tickets to work
 - jira comments to reply to
