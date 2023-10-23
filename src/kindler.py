@@ -26,7 +26,8 @@ class Kindler:
 
     def write_notebook_to_logseq(self,
                        notebook:str|Path,
-                       logseq_path:Optional[str|Path]=Path("/logseq/pages")) -> None:
+                       logseq_path:Optional[str|Path]=Path("/logseq/pages"),
+                       purge_txt:bool|None=True) -> None:
         """prep kindle notebook file and write to logseq"""
         notebook = Path(notebook)
         logseq_path = Path(logseq_path)
@@ -42,6 +43,8 @@ class Kindler:
         NON_ROOT_UID = 1000
         NON_ROOT_GID = 1000
         os.chown(logseq_file, NON_ROOT_UID, NON_ROOT_GID)
+        if not purge_txt:
+            return
         notebook.unlink()
 
 
@@ -72,9 +75,9 @@ class Kindler:
     @classmethod
     def _convert_indents(cls, text:str) -> str:
         steps = [
-            (r'^\-(\s*)(\w)', r'\- \2'),
-            (r'\+(\s*)(\w)', r'\t\- \2'),
-            (r'\*(\s*)(\w)', r'\t\t\- \2'),
+            (r'\n(\s*)-(\s*)(\w)', r'\n- \3'),
+            (r'\n(\s*)+(\s*)(\w)', r'\n\t- \3'),
+            (r'\n(\s*)*(\s*)(\w)', r'\n\t\t- \3'),
         ]
         for pattern, replacement in steps:
             text = re.sub(pattern, replacement, text, flags=re.MULTILINE)
